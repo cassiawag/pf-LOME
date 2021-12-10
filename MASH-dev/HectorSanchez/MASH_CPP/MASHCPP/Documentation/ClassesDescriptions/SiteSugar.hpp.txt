@@ -1,2 +1,0 @@
-    float sugarQuantity        :: Sugar available in the site
-    ATSB    atsb               :: Attractive sugar bait object in site

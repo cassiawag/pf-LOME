@@ -1,4 +1,0 @@
-    int                     id                 :: Individual identifier
-    InsecticideTreatedNet   itn                :: Insecticide-treated net object
-    PersonalRepellant       personalRepellant  :: Personal repellant object
-    PersonalProtection      personalProtection :: Personal protection object

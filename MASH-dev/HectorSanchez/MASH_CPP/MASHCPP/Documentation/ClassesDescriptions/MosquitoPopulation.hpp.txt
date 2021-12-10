@@ -1,2 +1,0 @@
-    std::vector<MosquitoAquatic>    aquaticPopulation  :: Mosquito aquatic objects vector
-    std::vector<Mosquito>           adultPopulation    :: Mosquito adults objects vector

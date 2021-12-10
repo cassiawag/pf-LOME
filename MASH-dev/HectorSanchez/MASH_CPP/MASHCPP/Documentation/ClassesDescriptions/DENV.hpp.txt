@@ -1,1 +1,0 @@
-    char serotype      :: Serotype of the instance of the virus (defined as char to save memory)
