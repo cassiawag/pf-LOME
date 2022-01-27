@@ -180,26 +180,6 @@ Human <- R6Class("Human",
                      }
                    },
 
-                  # get_RBC = function(){
-                  #   private$healthState$get_RBC()
-                  # },
-
-                   #get_RBChistory = function(){
-                  #   private$healthState$get_RBChistory()
-                  # },
-
-                   #get_immuneHistory = function(){
-                  #   private$immuneState$get_history()
-                  # },
-
-                   #get_pathogenHistory = function(){
-                  #   private$pathogen$get_history()
-                  # },
-
-                   #get_healthHistory = function(){
-                  #   private$healthState$get_history()
-                  # },
-
                    get_IncImm = function(){
                      private$IncImm
                    }
