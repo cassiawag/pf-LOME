@@ -1,16 +1,13 @@
 ImmuneState <- R6Class("ImmuneState",
-                       
                        public = list(
-                         
-                         initialize = function(include=T){
-                           
+
+                         initialize = function(){
+
                            ## set up Blood State Immune Counters
-                           
                            private$nBSImmCounters = 4
                            private$BSImm = rep(0,private$nBSImmCounters)
                            private$wx = dt*c(1/30, 1/90, 1/270, 1/5/365)
                            private$wn = dt*c(1/30, 1/90, 1/270, 0)
-                           
                            private$BSImmCounters = list()
                            for(i in 1:private$nBSImmCounters){
                              private$BSImmCounters[[i]] = list(
@@ -18,14 +15,13 @@ ImmuneState <- R6Class("ImmuneState",
                                F = self$dynamicXdt
                              )
                            }
-                           
+
                            ## set up Gametocyte Immune Counters
-                           
                            private$nGSImmCounters = 4
                            private$GSImm = rep(0,private$nGSImmCounters)
                            private$Gwx = dt*c(1/30, 1/90, 1/270, 1/5/365)
                            private$Gwn = dt*c(1/30, 1/90, 1/270, 0)
-                           
+
                            private$GSImmCounters = list()
                            for(i in 1:private$nGSImmCounters){
                              private$GSImmCounters[[i]] = list(
@@ -33,9 +29,8 @@ ImmuneState <- R6Class("ImmuneState",
                                F = self$dynamicXdt
                              )
                            }
-                           
+
                            ## set up history to track the BS and GS immune counters
-                           
                            private$history = list()
                            private$history$BSImm = list()
                            private$history$GSImm = list()
@@ -47,94 +42,85 @@ ImmuneState <- R6Class("ImmuneState",
                            }
                            private$GenImmBS = 0
                            private$GenImmGS = 0
-                           
+
                            private$dxp = 1
                            private$dtp = 1/100
                            ##### this next line assumes pfpedigree is declared and called pfped - be careful here
-                           if(include==T){
-                              private$nptypes = pfped$get_nptypes()
-                           }
-                           if(include==F){
-                             private$nptypes=0
-                           }
-                           
+                           private$nptypes = pfped$get_nptypes()
                          },
-                         
+
                          get_history = function(){
                            private$history
                          },
-                         
+
                          get_BSImmCounters = function(){
                            private$BSImmCounters
                          },
-                         
+
                          get_nBSImmCounters = function(){
                            private$nBSImmCounters
                          },
-                         
+
                          get_BSImm = function(){
                            private$BSImm
                          },
-                         
+
                          get_typeImm = function(t,ptype){
+                           print(private$nptypes)
                            weight = self$crossImm(ptype,private$nptypes)
                            if(is.null(private$typeImm)){
+                             print("nulltypeimm")
                              private$typeImm = matrix(rep(0,max(private$nptypes)*length(ptype)),nrow=length(ptype))
                            }
                            print(private$typeImm)
+                           print(weight)
                            rowSums(weight*private$typeImm)
                          },
-                         
+
                          update_immuneState = function(t,dt,Ptot,Gtot){
-                           
                            ##BS immunity update
                            for(i in 1:private$nBSImmCounters){
                              private$BSImm[i] = with(private$BSImmCounters[[i]], F(private$BSImm[i], Ptot, PAR)) # bloodstage immune counters
                            }
                            private$GenImmBS = 1-prod(1-private$BSImm)
-                           
+
                            ##GS immunity update
                            for(i in 1:private$nGSImmCounters){
                              private$GSImm[i] = with(private$GSImmCounters[[i]], F(private$GSImm[i], Gtot, PAR))
                            }
                            private$GenImmGS = 1-prod(1-private$GSImm)
-                           
+
                            ##type specific immunity update
-                           
-                           if(include==T){
-                              self$update_typeImmunity(t,dt,ptype=NaN)
-                           }
-                          
+                           self$update_typeImmunity(t,dt,ptype=NaN)
+
                            ##history update
                            self$update_history()
                          },
-                         
+
                          update_history = function(){
                            for(i in 1:private$nBSImmCounters){
                               private$history$BSImm[[i]] = c(private$history$BSImm[[i]], private$BSImm[i])
                            }
                            private$history$GenImmBS = c(private$history$GenImmBS, private$GenImmBS)
-                           
+
                            for(i in 1:private$nGSImmCounters){
                               private$history$GSImm[[i]] = c(private$history$GSImm[[i]], private$GSImm[i])
                            }
                            private$history$GenImmGS = c(private$history$GenImmGS, private$GenImmGS)
-                           
+
                          },
-                         
+
                          ############ General immune methods ################
-                         
-                         
+
                          ##################################################################
                          # The notion here is that we have some underlying dynamic:
                          # dX/dt = r(K(P)-K(X))*(K(P)-X)
                          ##################################################################
-                         
-                         
+
                          sigmoidX = function(X, X50=6, Xs=3, atMax=13){
                            pmin((1/(1+exp(-Xs*(X-X50))) - 1/(1+exp(Xs*X50)))/(1/(1+exp(-Xs*(atMax-X50))) - 1/(1+exp(Xs*X50))),1)
                          },
-                         
+
                          dynamicXdt = function(X, P, PAR){with(PAR,{
                            X = ifelse(is.na(X),0,X)
                            P = ifelse(is.na(P),0,P)
@@ -143,23 +129,23 @@ ImmuneState <- R6Class("ImmuneState",
                            b = exp(abs(b))
                            X + (a*((1-exp(-b*abs(K-X)^sigma))*c(wn,0,wx)[a+2])^sigma)
                          })},
-                         
+
                          daysSinceUnder = function(X, P, PAR){with(PAR,{
                            X = ifelse(is.na(X),0,X)
                            P = ifelse(is.na(P),0,P)
                            ifelse(P<Pthresh, X+dt, 0)
                          })},
-                         
+
                          daysSinceOver = function(X, P, PAR){with(PAR,{
                            X = ifelse(is.na(X),0,X)
                            P = ifelse(is.na(P),0,P)
                            ifelse(P>Pthresh, X+dt, 0)
                          })},
-                         
+
                          antibodyRegister  = function(pfid, t, ixH){
                            HUMANS[[ixH]]$Pf$types <<- rbind(HUMANS[[ixH]]$Pf$types, c(pfid, t))
                          },
-                         
+
                          dynamicCounter = function(P, PAR){
                            X = 0
                            Xt = X
@@ -169,15 +155,13 @@ ImmuneState <- R6Class("ImmuneState",
                            }
                            Xt
                          },
-                         
+
                          ImPAR = function(wx=1/80, wn=1/180, P50=6, Ps=1, atMax=11, b=2, sigma=1){
                            list(wx=wx,wn=wn,P50=P50,Ps=Ps,atMax=atMax,b=b,sigma=sigma)
                          },
-                         
-                         
+
                          ############ type-specific immune methods ###########
-                         
-                         
+
                          #turns ptype into binary matrix, can more easily compare for cross immunity
                          ptype2Mat = function(ptype,nptypes){
                            nAntigenLoci = length(ptype)
@@ -187,7 +171,7 @@ ImmuneState <- R6Class("ImmuneState",
                            }
                            return(mat)
                          },
-                         
+
                          shift = function(v,places,dir="right") {
                            places = places%%length(v)
                            if(places==0) return(v)
@@ -201,16 +185,17 @@ ImmuneState <- R6Class("ImmuneState",
                              return(temp)
                            }
                          },
-                         
+
                          update_typeImmunity = function(t,dt,ptype){
                            nptypes = pfped$get_nptypes()
                            ptype = ifelse(is.na(ptype),rep(0,10),ptype)
                            private$ptypesTime = pmax(self$ptype2Mat(ptype,nptypes)*t*dt,private$ptypesTime,na.rm=T)
                            private$typeImm = pmax(exp(-private$dtp*private$ptypesTime),0,na.rm=T)
                          },
-                         
-                         crossImm = function(ptype,nptypes){
+
+                         crossImm = function(ptype,nptypes){ ## Should try to understand
                            ptypes = self$ptype2Mat(ptype,nptypes)
+                           nAntigenLoci = length(ptype)
                            for(i in 1:nAntigenLoci){
                              a = which(ptypes[i,]==1)
                              b = which(ptypes[i,]==0)
@@ -224,13 +209,11 @@ ImmuneState <- R6Class("ImmuneState",
                            }
                            pmax(exp(-private$dxp*ptypes),0,na.rm=T)
                          }
-                         
+
                        ),
-                       
-                       
+
                        ############### private fields #############
-                       
-                       
+
                        private = list(
                          nBSImmCounters = NULL,
                          BSImmCounters = NULL,
@@ -251,5 +234,4 @@ ImmuneState <- R6Class("ImmuneState",
                          nptypes = NULL,
                          history = NULL
                        )
-                       
 )

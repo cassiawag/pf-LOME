@@ -5,6 +5,9 @@ source("PfLOME_Human.R")
 source("PfLOME_PfPedigree.R")
 source("Rx.R")
 ##source ("eventTimeSeries.R") ##source this if you want to pull from mbites
+############## set parameters #####################################
+dt = 1 # time step
+
 
 ############## artificial pedigree - will exist on tile ################
 
@@ -15,8 +18,9 @@ pfped = PfPedigree$new()
 
 someGuy = Human$new(1)
 pf = Pf$new(1,1,1,TRUE) ##mic, mac, pfid, seed
+
 pfped$add2Pedigree(pf)
-someGuy$infectHuman(0,pf$get_pfid())
+someGuy$infectHuman(1,pf$get_pfid())
 someGuy$get_Ptot()
 someGuy$get_Gtot()
 
@@ -26,6 +30,8 @@ bites = 0
 tt = 0
 while(tt<365*2){
   bite = rgeom(1,100/365)
+  # regeom is also a memoryless distribution, but discrete unlike continuous exponentioal
+  # rate used her is 100 bites per year on average
   bites = c(bites,bite)
   tt = cumsum(bites)[length(bites)]
 }
@@ -33,11 +39,17 @@ bites = unique(cumsum(bites))
 #bites = unique(sort(make.bites(70, 10, 1, 5, wt=wt, trend = .05)))
 moi = 1+rnbinom(length(bites), mu=3, size = .3)
 
-dt = 7
-tFinal = 2*365
+#dt = 7
+tFinal = 2*365 #10
 t = 1
 
 while(t < tFinal){
+  #print('PLDH:')
+  #print(someGuy$get_pLDH())
+  #print("--------")
+  #print(someGuy$get_Ptot())
+  #print(someGuy$get_Gtot())
+  #print("--------")
   someGuy$updateHuman(t,dt)
   s = t
   while((s >= t) & s < t+dt){
@@ -72,7 +84,7 @@ plot(t,someGuy$get_history()$Ptot,type="l",
      ylim=c(-5,11),xlim=c(0,2),xlab='years',ylab='log10 iRBC')
 lines(t,someGuy$get_history()$Gtot,lty=2)
 lines(t,someGuy$get_history()$Fever)
-lines(t,2*someGuy$get_history()$GenImm-3,type="l")
+lines(t,someGuy$get_history()$GenImm,type="l") # get error about x & y lengths differ. Tried to fix by removing -3 & 2*
 lines(t,someGuy$get_history()$PD,col='purple')
 abline(h=c(-1,-3),lty=2)
 lines(t,someGuy$get_history()$PfMOI/max(someGuy$get_history()$PfMOI)*2-5)
@@ -93,3 +105,4 @@ plot(1:length(someGuy$get_history()$RBC),someGuy$get_history()$RBC,type="l",xlab
 plot(1:length(someGuy$get_history()$HRP2),someGuy$get_history()$HRP2,type="l",xlab='days')
 ##pLDH
 plot(1:length(someGuy$get_history()$pLDH),someGuy$get_history()$pLDH,type="l",xlab='days')
+

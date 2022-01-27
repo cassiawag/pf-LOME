@@ -1,7 +1,7 @@
 HealthState <- R6Class("HealthState",
-                       
+
                        public = list(
-                         
+
                          initialize = function(){
                            private$Fever = FALSE
                            private$feverThresh = 9
@@ -11,11 +11,11 @@ HealthState <- R6Class("HealthState",
                            private$PD = 0
                            private$history = list()
                          },
-                         
-                         
+
+
                          ####### Accessors ########
-                         
-                         
+
+
                          get_Fever = function(){
                            private$Fever
                          },
@@ -58,11 +58,14 @@ HealthState <- R6Class("HealthState",
                          get_PD = function(){
                            private$PD
                          },
-                         
-                         
+                         get_RBChistory = function(){
+                           private$history$RBC
+                         },
+
+
                          ############ Update Methods ##############
-                         
-                         
+
+
                          update_healthState = function(t,dt,Ptot,RBCHist){
                            self$update_Fever(Ptot)
                            self$update_HRP2(Ptot)
@@ -71,7 +74,7 @@ HealthState <- R6Class("HealthState",
                            self$update_PD(t)
                            self$update_history()
                          },
-                         
+
                          update_Fever = function(Ptot){
                            if(!is.na(Ptot)){
                              private$Fever = ifelse(Ptot >= private$feverThresh, TRUE, FALSE)
@@ -80,38 +83,48 @@ HealthState <- R6Class("HealthState",
                              private$Fever = FALSE
                            }
                          },
-                         
+
                          update_HRP2 = function(Ptot){
                            a = .0019
                            b = log(2)/3.67
                            private$HRP2 = ifelse(is.na(Ptot),log10(10^private$HRP2-dt*b*10^private$HRP2),log10(10^private$HRP2+dt*(a*10^Ptot-b*10^private$HRP2)))
                          },
-                         
+
                          update_pLDH = function(Ptot){
                            a = .13
                            b = log(2)/2
-                           private$pLDH = ifelse(!is.na(Ptot),
-                                                 log10(10^private$pLDH - dt*(b*10^private$pLDH + a*10^Ptot)),
-                                                 log10((1-dt*b)*10^private$pLDH))
+                           c = private$pLDH
+                           if(!is.na(Ptot)){
+                            private$pLDH = log10(10^c + dt*(a*10^Ptot - b*10^c))
+                           }else{
+                            private$pLDH = log10((1-dt*b)*10^c)
+                           }
                          },
-                         
+
                          update_RBC = function(Ptot,RBCHist){
                            a = log(2)/120 #RBC halflife
                            b = 1
                            c = 1.7
                            d = .5
                            e = 5*10^9
-                           rhat = ifelse(t<7,2.5,RBCHist[t-6])
+                           # rhat is now not a vector. If it should be, I definitely made an error with this bug fix.
+                           if(t < 7){
+                            rhat = 2.5
+                           }else{
+                            rhat = RBCHist[t-6]
+                           }
                            r = private$RBC
-                           private$RBC = ifelse(is.nan(Ptot),
-                                                r + dt*(- a*r + b*exp(-c*rhat)),
-                                                r + dt*(- a*r + b*exp(-c*rhat) - d*10^Ptot/(e+10^Ptot)*r))
+                           if(is.nan(Ptot)){
+                            private$RBC = r + dt*(- a*r + b*exp(-c*rhat))
+                           }else{
+                            private$RBC = r + dt*(- a*r + b*exp(-c*rhat) - d*10^Ptot/(e+10^Ptot)*r)
+                           }
                          },
-                         
+
                          update_PD = function(t){
                            private$PD = self$getPD(t,private$RxStart,private$Drug)
                          },
-                         
+
                          update_history = function(){
                            private$history$Fever = c(private$history$Fever,private$Fever)
                            private$history$HRP2 = c(private$history$HRP2,private$HRP2)
@@ -119,11 +132,11 @@ HealthState <- R6Class("HealthState",
                            private$history$RBC = c(private$history$RBC,private$RBC)
                            private$history$PD = c(private$history$PD,private$PD)
                          },
-                         
-                         
+
+
                          #################### Diagnostic Tests ####################
-                         
-                         
+
+
                          RDT = function(){
                            detect = 10
                            E1 = .1
@@ -132,7 +145,7 @@ HealthState <- R6Class("HealthState",
                            p = E1+(1-E1-E2)*self$sigmoidX(x,detect,3,13)
                            return(rbinom(1,1,p))
                          },
-                         
+
                          HSRDT = function(){
                            detect = 10
                            E1 = .1
@@ -141,7 +154,7 @@ HealthState <- R6Class("HealthState",
                            p = E1+(1-E1-E2)*self$sigmoidX(x,detect,3,13)
                            return(rbinom(1,1,p))
                          },
-                         
+
                          PCR = function(){
                            detect = 10
                            E1 = .1
@@ -150,7 +163,7 @@ HealthState <- R6Class("HealthState",
                            p = E1+(1-E1-E2)*self$sigmoidX(x,detect,3,13)
                            return(rbinom(1,1,p))
                          },
-                         
+
                          LAMP = function(){
                            detect = 10
                            E1 = .1
@@ -159,7 +172,7 @@ HealthState <- R6Class("HealthState",
                            p = E1+(1-E1-E2)*self$sigmoidX(x,detect,3,13)
                            return(rbinom(1,1,p))
                          },
-                         
+
                          LightMic = function(){
                            detect = 10
                            E1 = .1
@@ -168,19 +181,19 @@ HealthState <- R6Class("HealthState",
                            p = E1+(1-E1-E2)*self$sigmoidX(x,detect,3,13)
                            return(rbinom(1,1,p))
                          },
-                         
+
                          sigmoidX = function(X, X50=6, Xs=3, atMax=13){
                            pmin((1/(1+exp(-Xs*(X-X50))) - 1/(1+exp(Xs*X50)))/(1/(1+exp(-Xs*(atMax-X50))) - 1/(1+exp(Xs*X50))),1)
                          },
-                         
-                         
+
+
                          ####################### Rx methods #######################
-                         
+
                          Treat = function(t,Drug){
                            private$RxStart = c(private$RxStart,t)
                            private$Drug = c(private$Drug,1)
                          },
-                         
+
                          getPD = function(t, RxStart, Drug){
                            N = length(private$RxStart)
                            PD = 0
@@ -194,7 +207,7 @@ HealthState <- R6Class("HealthState",
                            }
                            return(PD)
                          },
-                         
+
                          PDi = function(t, RxStart, Drug){
                            age = t-RxStart+1
                            PD = 0
@@ -203,11 +216,11 @@ HealthState <- R6Class("HealthState",
                            }
                            return(PD)
                          }
-                         
-                         
+
+
                        ),
-                       
-                       
+
+
                        private = list(
                          Fever = NULL,
                          feverThresh = NULL,
@@ -219,5 +232,5 @@ HealthState <- R6Class("HealthState",
                          PD = NULL,
                          history = NULL
                        )
-                       
+
 )
