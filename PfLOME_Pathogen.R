@@ -8,22 +8,18 @@ Pathogen <- R6Class("Pathogen",
                         private$PfPathogen = list()
                         private$PfMOI = 0
                         private$Ptot = NaN
-                        private$Gtot = NaN
                         private$history = list()
-                        private$TE = 0
                       },
 
                       ## add pf during infection
 
-                      add_Pf = function(t,pfid,mic,mac,gtype,BSImm){
-                        pf = Pf$new(mic,mac,pfid,TRUE)
+                      add_Pf = function(t,pfid,gtype,BSImm, nptypes){ # Where is type specific immunity?
+                        pf = Pf$new(pfid, nptypes)
                         pf$set_gtype(gtype)
                         pf$set_PAR(pf$tentPAR(t,pfid))
                         pf$immuneMod_Tent(BSImm)
                         pf$set_Pt(pf$get_PAR()$MZ0)
                         pf$set_activeP(1)
-                        pf$set_Gt(NaN)
-                        pf$set_activeG(1)
                         ifelse(is.na(private$Ptot),self$set_Ptot(pf$get_PAR()$MZ0),self$set_Ptot(log10(10^pf$get_PAR()$MZ0+10^private$Ptot)))
                         private$PfPathogen[[pfid]] = pf
                         self$set_PfMOI(self$get_PfMOI()+1)
@@ -37,16 +33,16 @@ Pathogen <- R6Class("Pathogen",
                       ## update pathogens
 
                       update_pathogen = function(t,dt,PD){
-                        for(i in 1:length(private$PfPathogen)){
-                          Pttemp = private$PfPathogen[[i]]$get_Pt()
-                          private$PfPathogen[[i]]$update_Pf(t,dt,PD)
-                          if(is.na(private$PfPathogen[[i]]$get_Pt()) & !is.na(Pttemp)){
-                            self$set_PfMOI(private$PfMOI-1)
+                        if (length(private$PfPathogen) > 0){
+                          for(i in 1:length(private$PfPathogen)){
+                            Pttemp = private$PfPathogen[[i]]$get_Pt()
+                            private$PfPathogen[[i]]$update_Pf(t,dt,PD)
+                            if(is.na(private$PfPathogen[[i]]$get_Pt()) & !is.na(Pttemp)){
+                              self$set_PfMOI(private$PfMOI-1)
+                            }
                           }
+                          self$update_Ptot()
                         }
-                        self$update_Ptot()
-                        self$update_Gtot()
-                        self$update_TE()
                         self$update_history()
                       },
 
@@ -61,40 +57,13 @@ Pathogen <- R6Class("Pathogen",
                         }
                       },
 
-                      update_Gtot = function(){
-                        private$Gtot = NaN
-                        for(i in 1:length(private$PfPathogen)){
-                          private$Gtot = self$log10sum(c(private$Gtot, private$PfPathogen[[i]]$get_Gt()))
-                        }
-                      },
-
-                      sigmoid = function(x,a,b,max) { ##defined on R --> [0,1]
-                        ## b is 50th percentile in R
-                        ## a is slope param
-                        max*(x/b)^a/(1+(x/b)^a)
-                      },
-
-                      ## update transmission efficiency - sigmoidal conversion from log10 Gametocyte numbers
-                      update_TE = function(){
-                        if(is.na(private$Gtot)){
-                          private$TE = 0
-                        }
-                        if(is.na(private$Gtot)==F){
-                            private$TE = self$sigmoid(private$Gtot,private$teSlope,private$teMed,private$teMax)
-                        }
-                      },
-
                       update_history = function(overwrite=F){
                         if(overwrite==F){
                           private$history$Ptot = c(private$history$Ptot,private$Ptot)
-                          private$history$Gtot = c(private$history$Gtot,private$Gtot)
-                          private$history$TE = c(private$history$TE,private$TE)
                           private$history$PfMOI = c(private$history$PfMOI,private$PfMOI)
                         }
                         if(overwrite==T){
                           private$history$Ptot[length(private$history$Ptot)] = private$Ptot
-                          private$history$Gtot[length(private$history$Gtot)] = private$Gtot
-                          private$history$TE[length(private$history$TE)] = private$TE
                           private$history$PfMOI[length(private$history$PfMOI)] = private$PfMOI
                         }
                       },
@@ -109,10 +78,6 @@ Pathogen <- R6Class("Pathogen",
                         private$Ptot = newPtot
                       },
 
-                      get_Gtot = function(){
-                        private$Gtot
-                      },
-
                       get_PfMOI = function(){
                         private$PfMOI
                       },
@@ -123,22 +88,6 @@ Pathogen <- R6Class("Pathogen",
 
                       get_Pf = function(){
                         private$PfPathogen
-                      },
-
-                      get_TE = function(){
-                        private$TE
-                      },
-
-                      set_teMed = function(teMed){
-                        private$teMed = teMed
-                      },
-
-                      set_teSlope = function(teSlope){
-                        private$teSlope = teSlope
-                      },
-
-                      set_teMax = function(teMax){
-                        private$teMax = teMax
                       },
 
                       get_history = function(){
@@ -152,7 +101,6 @@ Pathogen <- R6Class("Pathogen",
                       log10vals = function(x){
                         ifelse(!is.na(x) & is.finite(x) & x>=0, x, NaN)
                       }
-
                     ),
 
 
@@ -162,13 +110,7 @@ Pathogen <- R6Class("Pathogen",
                     private = list(
                       PfPathogen = NULL,
                       Ptot = NULL,
-                      Gtot = NULL,
                       PfMOI = NULL,
-                      ## sigmoidal conversion of Gt to transmission efficiency (te)
-                      TE = NULL,
-                      teSlope = 8,
-                      teMed = 7,
-                      teMax = 1,
                       history = NULL
                     )
 
@@ -180,66 +122,42 @@ Pf <- R6Class("Pf",
 
                 ## initialization of components
 
-                initialize = function(mic,mac,pfid,seed=FALSE){
+                initialize = function(pfid, nptypes){
                   private$pfid = pfid
-                  private$mic = mic
-                  private$mac = mac
-                  private$mu = .01
                   private$Ptt = rep(NaN,10)
-                  private$mnMaxPD = 10.5
-                  private$mnPeakD = 20
-                  private$mnMZ0 = 4.2
-                  private$mnDuration=200
-                  private$gtype = self$getGtype(mic,mac,private$mu,seed)
-                  private$ptype = self$getPtype(private$gtype,pfped$get_nptypes())
+                  private$mnMaxPD = 10.5 # median peak parasitemia
+                  private$mnPeakD = 20 # median peak time
+                  private$mnMZ0 = 4.2 # median number of merozoites emerging from liver
+                  private$mnDuration=200 # median infection duration
+                  private$nptypes = nptypes
+                  private$gtype = self$getGtype(nptypes)
+                  private$ptype = self$getPtype(private$gtype,nptypes)
                 },
 
 
                 ######### setting g/p types
 
 
-                getGtype = function(mic,mac,mu,seed=FALSE){
-                  ifelse(seed==TRUE,{
-                    gtype = runif(pfped$get_nptypes())
-                  },
-                  {
-                    micType = pfped$get_gtype(mic)
-                    macType =  pfped$get_gtype(mac)
-                    micmac = cbind(micType, macType)
-                    ix = sample(c(1,2), pfped$get_nAntigenLoci(), replace =TRUE)
-                    gtype = NULL
-                    for(i in 1:pfped$get_nAntigenLoci()){
-                      gtype = c(gtype,micmac[i,ix[i]])
-                    }
-                    gtype = self$mutate(gtype,mu)
-                  })
+                getGtype = function(nptypes){
+                  len <- length(nptypes)
+                  gtype <- runif(len)
                   return(gtype)
                 },
 
                 getPtype = function(gtype,nptypes){
                   ptype = ceiling(gtype*nptypes)
-                  ptype[which(ptype==0)]=1
                   return(ptype)
                 },
-
-                mutate = function(gtype,mu){
-                  #mu is parameter describing mutation probability at each locus - between 0 and 1
-                  ##assuming julia gog forulation with genotypes lying on unit interval:
-                  mutgen = which(rbinom(pfped$get_nAntigenLoci(),1,mu)==1)
-                  if(length(mutgen)!=0) {
-                    for(i in 1:length(mutgen)) {
-                      gtype[mutgen[i]] = gtype[mutgen[i]] + runif(1,min=-gtype[mutgen[i]],max=1-gtype[mutgen[i]]) #uniformly random mutation
-                    }
-                  }
-                  return(gtype)
-                },
-
 
                 ############ accessors ############
 
 
                 get_pfid = function(){
                   private$pfid
+                },
+
+                get_nptypes = function(){
+                  private$nptypes
                 },
 
                 get_gtype = function(){
@@ -281,22 +199,6 @@ Pf <- R6Class("Pf",
                   private$Ptt = newPtt
                 },
 
-                get_Gt = function(){
-                  private$Gt
-                },
-
-                set_Gt = function(newGt){
-                  private$Gt = newGt
-                },
-
-                get_mic = function(){
-                  private$mic
-                },
-
-                get_mac = function(){
-                  private$mac
-                },
-
                 get_activeP = function(){
                   private$activeP
                 },
@@ -334,23 +236,12 @@ Pf <- R6Class("Pf",
                   private$PAR = self$tentPAR(t=private$PAR$t0,pfid=private$pfid)
                 },
 
-                set_gdk = function(gdk){
-                  private$PAR$gdk = log(2)/gdk
-                },
-
-                set_ggr = function(ggr){
-                  private$PAR$ggr = ggr
-                },
-
-
                 ########## update methods ##########
-
 
                 update_Pf = function(t,dt,PD){
                   for(i in 1:dt){
                     self$update_Pt(t,PD)
                     self$update_Ptt()
-                    self$update_Gt()
                   }
                 },
 
@@ -367,21 +258,8 @@ Pf <- R6Class("Pf",
                   private$Ptt[1] = private$Pt
                 },
 
-                update_Gt = function(t){
-                  if(is.na(private$Gt)){
-                    private$Gt = self$GamCyGen(t,private$Ptt[10],private$PAR)
-                  }
-                  if(!is.na(private$Gt)){
-                    private$Gt = self$log10sum(c(private$Gt - private$PAR$gdk, self$GamCyGen(t,private$Ptt[10],private$PAR)))
-                  }
-                },
-
                 update_PD = function(PD){
                   private$PD = set_PD(PD)
-                },
-
-                GamCyGen = function(t, P, PAR){
-                  P+log10(PAR$ggr)
                 },
 
 
@@ -424,9 +302,6 @@ Pf <- R6Class("Pf",
                   dr            = mxPD/(tEnd-peakD)
                   gtype         = private$gtype
 
-                  gdk           = log(2)/6 ##### gametocyte halflife of 6 days
-                  ggr           = .01 ##### about 1% rate of production of Gt per Pt per day
-
                   list(
                     pfid	        = pfid,
                     t0  	        = t,
@@ -435,9 +310,7 @@ Pf <- R6Class("Pf",
                     MZ0           = MZ0,
                     peakD         = peakD,
                     mxPD          = mxPD,
-                    tEnd          = tEnd,
-                    gdk           = gdk,
-                    ggr           = ggr
+                    tEnd          = tEnd
                   )
                 },
 
@@ -476,7 +349,7 @@ Pf <- R6Class("Pf",
                   ifelse(!is.na(x) & is.finite(x) & x>=0, x, NaN)
                 },
 
-                immuneMod_Tent = function(BSImm){
+                immuneMod_Tent = function(BSImm){ ###### Don't have a way for type immunity to modulate this!!!
                   genImm              = 1-prod(1-BSImm) ##total strength of combined general immunity
                   ################### as a stub - have maximum effect of immunity with some effect inevitable (prop here 2/3 to 1/3)
                   p = 2/3
@@ -507,25 +380,17 @@ Pf <- R6Class("Pf",
                 ## Parasite Densities (Pt = Asexual, Gt = Gametocyte,
                 ## St = Sporozoite)
                 activeP = NULL,
-                activeG = NULL,
-                activeS = NULL,
                 Pt = NULL,
                 Ptt = NULL,
-                Gt = NULL,
-                St = NULL,
-                mic = NULL,
-                mac = NULL,
                 ## biological parameters
                 gtype = NULL,
                 ptype = NULL,
-                mu = .01,
+                nptypes = NULL,
 
                 ##tent function dist'n pars
                 mnMaxPD = NULL,
                 mnPeakD = NULL,
                 mnMZ0 = NULL,
                 mnDuration = NULL
-
               )
-
 )

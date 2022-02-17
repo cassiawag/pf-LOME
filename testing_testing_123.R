@@ -1,36 +1,19 @@
 library("R6")
 source("PfLOME_Pathogen.R")
 source("PfLOME_Human.R")
-##human sources ImmuneState and HealthState classes
-source("PfLOME_PfPedigree.R")
 source("Rx.R")
-##source ("eventTimeSeries.R") ##source this if you want to pull from mbites
-############## set parameters #####################################
-dt = 1 # time step
 
 
-############## artificial pedigree - will exist on tile ################
-
-pfped = PfPedigree$new()
-
-############## create human & parasite, add parasite ################
-##############   parasite to pedigree, infect human  ################
-
+dt = 1
+nptypes = c(3,4,6)
+pfid = 0
 someGuy = Human$new(1)
-pf = Pf$new(1,1,1,TRUE) ##mic, mac, pfid, seed
-
-pfped$add2Pedigree(pf)
-someGuy$infectHuman(1,pf$get_pfid())
-someGuy$get_Ptot()
-someGuy$get_Gtot()
-
-################ update infection for t days ########################
 
 bites = 0
 tt = 0
 while(tt<365*2){
   bite = rgeom(1,100/365)
-  # regeom is also a memoryless distribution, but discrete unlike continuous exponentioal
+  # rgeom is also a memoryless distribution, but discrete unlike continuous exponentioal
   # rate used her is 100 bites per year on average
   bites = c(bites,bite)
   tt = cumsum(bites)[length(bites)]
@@ -44,23 +27,15 @@ tFinal = 2*365 #10
 t = 1
 
 while(t < tFinal){
-  #print('PLDH:')
-  #print(someGuy$get_pLDH())
-  #print("--------")
-  #print(someGuy$get_Ptot())
-  #print(someGuy$get_Gtot())
-  #print("--------")
   someGuy$updateHuman(t,dt)
   s = t
   while((s >= t) & s < t+dt){
     if(s %in% bites){
       k = which(bites==s)
       for(i in 1:moi[k]){
-        pfped$increment_pfid()
-        pfid = pfped$get_pfid()
-        pf = Pf$new(mic,mac,pfid)
-        pfped$add2Pedigree(pf)
-        someGuy$infectHuman(s,pf$get_pfid())
+        pfid = pfid + 1
+        pf = Pf$new(pfid,nptypes) 
+        someGuy$infectHuman(s,pf)
       }
     }
     s = s+1
@@ -73,7 +48,6 @@ while(t < tFinal){
   }
   t = t+dt
 }
-
 ######################### plotting functions #############################
 
 tFinal = ifelse(dt%%2==1,tFinal-1,tFinal)
